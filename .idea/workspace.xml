@@ -14,6 +14,9 @@
       </list>
     </option>
   </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
   <component name="JupyterTrust" id="dbf93cce-a1ce-4dba-93b0-cd8e8f8a55f1">
     <option name="files">
       <option value="notebooks/lab1/string-matching.ipynb" />
@@ -27,9 +30,18 @@
   </component>
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/notebooks/lab1" />
     <property name="settings.editor.selected.configurable" value="preferences.general" />
+  </component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/notebooks/lab1" />
+    </key>
   </component>
   <component name="RunManager">
     <configuration name="TextualAlgorithms" type="PythonConfigurationType" factoryName="Python">
@@ -87,7 +99,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1583445746609</updated>
-      <workItem from="1583445802032" duration="328000" />
+      <workItem from="1583445802032" duration="622000" />
     </task>
     <servers />
   </component>
