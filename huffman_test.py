@@ -1,5 +1,5 @@
-from queue import LifoQueue, Queue
-from typing import Dict, List
+from heapq import heappush, heappop
+from typing import Dict
 from bitarray import bitarray
 
 
@@ -66,17 +66,32 @@ class Node:
         node2.parent = node1_parent
 
 
+class HuffmanTree:
+    def __init__(self, letters: Dict[str, int]) -> None:
+        super().__init__()
+        h = []
+        for letter, weight in letters.items():
+            heappush(h, Node(weight, letter))
+        while 1 < len(h):
+            node1 = heappop(h)
+            node2 = heappop(h)
+            heappush(h, Node(node1.weight+node2.weight, left=node1, right=node2))
+        self.root = h[0]
+        self.dictionary = {}
+        self.root.create_dict(self.dictionary)
+
+
 class AdaptiveHuffmanTree:
     def __init__(self) -> None:
         super().__init__()
-        self.root = self.NYT = Node(0, letter='\0')
-        self.code_dictionary: Dict[str, bytearray] = {}
+        self.root = self.NYT = Node(0, letter='##')
+        self.dictionary: Dict[str, bytearray] = {}
         self.leafs: Dict[str, Node] = {}
-        self.root.create_dict(self.code_dictionary)
+        self.root.create_dict(self.dictionary)
         self.nodes: List[Node] = []
 
     def split_nyt(self, new_node):
-        new_nyt = Node(0, letter='\0')
+        new_nyt = Node(0, letter='##')
         self.NYT.left = new_nyt
         self.NYT.right = new_node
         self.NYT.letter = None
@@ -132,64 +147,78 @@ class AdaptiveHuffmanTree:
         else:
             tree_updated = self.increment(self.leafs[letter])
         if tree_updated:
-            self.root.create_dict(self.code_dictionary)
+            self.root.create_dict(self.dictionary)
         return tree_updated
 
-    def search(self, code: bitarray):
-        node = self.root
-        if node.left is None and node.right is None:
-            return node.letter
-        for bit in code:
-            if bit:
-                node = node.right
-            else:
-                node = node.left
-        if node.left is not None and node.right is not None:
-            return None
-        return node.letter
 
-    @property
-    def dictionary(self):
-        if self.root.left is None and self.root.right is None:
-            code = bitarray()
-            code.append(0)
-            return {self.root.letter: code}
-        return self.code_dictionary
+def encoding_table(tree) -> bitarray:
+    table = bitarray()
+    for key, value in tree.dictionary.items():
+        length = bitarray()
+        length.frombytes(len(value).to_bytes(1, byteorder='big', signed=False))
+        letter = bitarray()
+        letter.fromstring(key)
+        table += letter + length + value
+    table_length = bitarray()
+    table_length.frombytes(len(table).to_bytes(1, byteorder='big', signed=False))
+    return table_length + table
 
 
-
-def encode(text: str):
-    tree = AdaptiveHuffmanTree()
-    bits = bitarray()
-    current_dict = tree.dictionary.copy()
+# format
+# encoding table length - {1 byte}
+# encoding table - {1 byte} letter - {1byte} code - length - code
+# encoded text
+def encode(text: str) -> bitarray:
+    letters = {}
     for letter in text:
-        if tree.update_tree(letter):
-            bits += current_dict['\0']
-            current_dict = tree.dictionary.copy()
-            letter_code = bitarray()
-            letter_code.fromstring(letter)
-            bits += letter_code
-        bits += current_dict[letter]
+        if letter not in letters.keys():
+            letters[letter] = 0
+        letters[letter] += 1
+    tree = HuffmanTree(letters)
+    bits = encoding_table(tree)
+    for letter in text:
+        bits += tree.dictionary[letter]
     return bits
 
 
-def decode(bits: bitarray):
-    tree = AdaptiveHuffmanTree()
+def bitarray_to_int(bits: bitarray) -> int:
+    number = 0
+    for bit in bits:
+        number = (number << 1) | bit
+    return number
+
+
+def decoding_table(bits: bitarray) -> (bitarray, Dict[int, str]):
+    table_length = int.from_bytes(bits[:8], byteorder='big', signed=True)
+    bits = bits[8:]
+    i = 0
+    table = {}
+    while i < table_length:
+        letter = bits[:8].tobytes().decode()
+        i += 8
+        bits = bits[8:]
+        length = bitarray_to_int(bits[:8])
+        i += 8
+        bits = bits[8:]
+        code = bits[:length]
+        i += length
+        bits = bits[length:]
+        table[bitarray_to_int(code)] = letter
+    return bits, table
+
+
+def decode(bits: bitarray) -> str:
+    bits, table = decoding_table(bits)
     i = 1
     text = ""
     while bits:
-        code = bits[:i]
-        letter = tree.search(code)
-        if letter is not None:
-            bits = bits[i:]
-            if letter == '\0':
-                tree.update_tree(bits[:8].tobytes().decode())
-                bits = bits[8:]
-            else:
-                text += letter
+        key = bitarray_to_int(bits[:i])
+        if key in table.keys():
+            text += table[key]
+            bits=bits[i:]
             i = 0
         i += 1
     return text
 
 
-print(decode(encode("japierdole kurwa mac nie bdzuaal")))
+print(decode(encode("abracadabra")))
