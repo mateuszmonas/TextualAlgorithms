@@ -1,3 +1,4 @@
+from heapq import heappush, heappop
 from queue import LifoQueue, Queue
 from typing import Dict, List
 from bitarray import bitarray
@@ -64,6 +65,20 @@ class Node:
             node2_parent.right = node1
         node1.parent = node2_parent
         node2.parent = node1_parent
+
+class HuffmanTree:
+    def __init__(self, letters: Dict[str, int]) -> None:
+        super().__init__()
+        h = []
+        for letter, weight in letters.items():
+            heappush(h, Node(weight, letter))
+        while 1 < len(h):
+            node1 = heappop(h)
+            node2 = heappop(h)
+            heappush(h, Node(node1.weight+node2.weight, left=node1, right=node2))
+        self.root = h[0]
+        self.dictionary = {}
+        self.root.create_dict(self.dictionary)
 
 
 class AdaptiveHuffmanTree:
@@ -155,7 +170,6 @@ class AdaptiveHuffmanTree:
             code.append(0)
             return {self.root.letter: code}
         return self.code_dictionary
-
 
 
 def encode(text: str):
