@@ -1,5 +1,7 @@
+import os
 from heapq import heappush, heappop
 from queue import LifoQueue, Queue
+from time import perf_counter
 from typing import Dict, List
 from bitarray import bitarray
 
@@ -66,20 +68,79 @@ class Node:
         node1.parent = node2_parent
         node2.parent = node1_parent
 
-class HuffmanTree:
-    def __init__(self, letters: Dict[str, int]) -> None:
+class StaticHuffmanTree:
+    def __init__(self, weights: Dict[str, int]) -> None:
         super().__init__()
         h = []
-        for letter, weight in letters.items():
+        for letter, weight in weights.items():
             heappush(h, Node(weight, letter))
         while 1 < len(h):
             node1 = heappop(h)
             node2 = heappop(h)
             heappush(h, Node(node1.weight+node2.weight, left=node1, right=node2))
         self.root = h[0]
-        self.dictionary = {}
-        self.root.create_dict(self.dictionary)
+        self.code_dictionary = {}
+        self.root.create_dict(self.code_dictionary)
 
+    @property
+    def dictionary(self):
+        if self.root.left is None and self.root.right is None:
+            code = bitarray()
+            code.append(0)
+            return {self.root.letter: code}
+        return self.code_dictionary
+
+    @staticmethod
+    def encode(text: str) -> bitarray:
+        letters = {}
+        for letter in text:
+            if letter not in letters.keys():
+                letters[letter] = 0
+            letters[letter] += 1
+        tree = StaticHuffmanTree(letters)
+        table = bitarray()
+        for key, value in letters.items():
+            letter = bitarray()
+            letter.fromstring(key)
+            weight = bitarray()
+            weight.frombytes(value.to_bytes(4, byteorder='big', signed=False))
+            table += letter + weight
+        table_length = bitarray()
+        table_length.frombytes(len(table).to_bytes(4, byteorder='big', signed=False))
+        bits = table_length + table
+        for letter in text:
+            bits += tree.dictionary[letter]
+        return bits
+
+    @staticmethod
+    def decode(bits: bitarray) -> str:
+        table_length = int.from_bytes(bits[:32], byteorder='big', signed=True)
+        bits = bits[32:]
+        i = 0
+        letters = {}
+        while i < table_length:
+            letter = bits[:8].tobytes().decode()
+            i += 8
+            bits = bits[8:]
+            weight = 0
+            for bit in bits[:32]:
+                weight = (weight << 1) | bit
+            i += 32
+            bits = bits[32:]
+            letters[letter] = weight
+        tree = StaticHuffmanTree(letters)
+        i = 0
+        text = ""
+        while i < len(bits):
+            node = tree.root
+            while node.left is not None and node.right is not None:
+                if bits[i]:
+                    node = node.right
+                else:
+                    node = node.left
+                i += 1
+            text += node.letter
+        return text
 
 class AdaptiveHuffmanTree:
     def __init__(self) -> None:
@@ -150,19 +211,6 @@ class AdaptiveHuffmanTree:
             self.root.create_dict(self.code_dictionary)
         return tree_updated
 
-    def search(self, code: bitarray):
-        node = self.root
-        if node.left is None and node.right is None:
-            return node.letter
-        for bit in code:
-            if bit:
-                node = node.right
-            else:
-                node = node.left
-        if node.left is not None and node.right is not None:
-            return None
-        return node.letter
-
     @property
     def dictionary(self):
         if self.root.left is None and self.root.right is None:
@@ -171,39 +219,86 @@ class AdaptiveHuffmanTree:
             return {self.root.letter: code}
         return self.code_dictionary
 
+    @staticmethod
+    def encode(text: str):
+        tree = AdaptiveHuffmanTree()
+        bits = bitarray()
+        current_dict = tree.dictionary.copy()
+        for letter in text:
+            if tree.update_tree(letter):
+                bits += current_dict['\0']
+                current_dict = tree.dictionary.copy()
+                letter_code = bitarray()
+                letter_code.fromstring(letter)
+                bits += letter_code
+            bits += current_dict[letter]
+        return bits
 
-def encode(text: str):
-    tree = AdaptiveHuffmanTree()
-    bits = bitarray()
-    current_dict = tree.dictionary.copy()
-    for letter in text:
-        if tree.update_tree(letter):
-            bits += current_dict['\0']
-            current_dict = tree.dictionary.copy()
-            letter_code = bitarray()
-            letter_code.fromstring(letter)
-            bits += letter_code
-        bits += current_dict[letter]
-    return bits
-
-
-def decode(bits: bitarray):
-    tree = AdaptiveHuffmanTree()
-    i = 1
-    text = ""
-    while bits:
-        code = bits[:i]
-        letter = tree.search(code)
-        if letter is not None:
-            bits = bits[i:]
-            if letter == '\0':
-                tree.update_tree(bits[:8].tobytes().decode())
-                bits = bits[8:]
+    @staticmethod
+    def decode(bits: bitarray):
+        tree = AdaptiveHuffmanTree()
+        i = 1
+        text = ""
+        updated = False
+        while i < len(bits):
+            node = tree.root
+            while node.left is not None and node.right is not None:
+                if bits[i]:
+                    node = node.right
+                else:
+                    node = node.left
+                i += 1
+            if node.letter == '\0':
+                tree.update_tree(bits[i:i+8].tobytes().decode())
+                updated = True
+                i += 8
             else:
-                text += letter
-            i = 0
-        i += 1
-    return text
+                if not updated:
+                    tree.update_tree(node.letter)
+                updated = False
+                text += node.letter
+        return text
 
 
-print(decode(encode("japierdole kurwa mac nie bdzuaal")))
+
+def test(input_file_name: str):
+    output_file_name = "result.txt"
+    uncompressed_size = os.path.getsize(input_file_name)
+    with open(input_file_name, "r") as file:
+        text = file.read()
+    print('Static huffman tree ')
+    with open(output_file_name, "wb") as file:
+        file.truncate()
+        start = perf_counter()
+        bits = StaticHuffmanTree.encode(text)
+        end = perf_counter()
+        print(f'encode: {end-start}')
+        start = perf_counter()
+        StaticHuffmanTree.decode(bits)
+        end = perf_counter()
+        print(f'decode: {end-start}')
+        bits.tofile(file)
+    compressed_size = os.path.getsize(output_file_name)
+    print(f'compression: {compressed_size * 100 / uncompressed_size}%')
+    print('Adaptive huffman tree ')
+    with open(output_file_name, "wb") as file:
+        file.truncate()
+        start = perf_counter()
+        bits = AdaptiveHuffmanTree.encode(text)
+        end = perf_counter()
+        print(f'encode: {end-start}')
+        start = perf_counter()
+        AdaptiveHuffmanTree.decode(bits)
+        end = perf_counter()
+        print(f'decode: {end-start}')
+        bits.tofile(file)
+    compressed_size = os.path.getsize(output_file_name)
+    print(f'compression: {compressed_size * 100 / uncompressed_size}%')
+
+
+# test("test.txt")
+
+with open("1kb.txt", "r") as file:
+    text = file.read()
+print(AdaptiveHuffmanTree.decode(AdaptiveHuffmanTree.encode(text)))
+# asd = StaticHuffmanTree("asd")[2]

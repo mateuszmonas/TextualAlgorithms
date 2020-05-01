@@ -1,5 +1,8 @@
+import os
 from heapq import heappush, heappop
-from typing import Dict
+from queue import LifoQueue, Queue
+from time import perf_counter
+from typing import Dict, List
 from bitarray import bitarray
 
 
@@ -66,7 +69,7 @@ class Node:
         node2.parent = node1_parent
 
 
-class HuffmanTree:
+class StaticHuffmanTree:
     def __init__(self, weights: Dict[str, int]) -> None:
         super().__init__()
         h = []
@@ -101,72 +104,66 @@ class HuffmanTree:
             return {self.root.letter: code}
         return self.code_dictionary
 
+    @staticmethod
+    def encode(text: str) -> bitarray:
+        letters = {}
+        for letter in text:
+            if letter not in letters.keys():
+                letters[letter] = 0
+            letters[letter] += 1
+        tree = StaticHuffmanTree(letters)
+        table = bitarray()
+        for key, value in letters.items():
+            letter = bitarray()
+            letter.fromstring(key)
+            weight = bitarray()
+            weight.frombytes(value.to_bytes(4, byteorder='big', signed=False))
+            table += letter + weight
+        table_length = bitarray()
+        table_length.frombytes(len(table).to_bytes(4, byteorder='big', signed=False))
+        bits = table_length + table
+        for letter in text:
+            bits += tree.dictionary[letter]
+        return bits
 
-def bitarray_to_int(bits: bitarray) -> int:
-    number = 0
-    for bit in bits:
-        number = (number << 1) | bit
-    return number
-
-
-def encoding_table(letters: [str, int]) -> bitarray:
-    table = bitarray()
-    for key, value in letters.items():
-        letter = bitarray()
-        letter.fromstring(key)
-        weight = bitarray()
-        weight.frombytes(value.to_bytes(4, byteorder='big', signed=False))
-        table += letter + weight
-    table_length = bitarray()
-    table_length.frombytes(len(table).to_bytes(4, byteorder='big', signed=False))
-    return table_length + table
-
-
-# format
-# encoding table length - {1 byte}
-# encoding table - {1 byte} letter - {1byte} code - length - code
-# encoded text
-def encode(text: str) -> bitarray:
-    letters = {}
-    for letter in text:
-        if letter not in letters.keys():
-            letters[letter] = 0
-        letters[letter] += 1
-    tree = HuffmanTree(letters)
-    bits = encoding_table(letters)
-    for letter in text:
-        bits += tree.dictionary[letter]
-    return bits
-
-
-def decoding_table(bits: bitarray) -> (bitarray, HuffmanTree):
-    table_length = int.from_bytes(bits[:32], byteorder='big', signed=True)
-    bits = bits[32:]
-    i = 0
-    letters = {}
-    while i < table_length:
-        letter = bits[:8].tobytes().decode()
-        i += 8
-        bits = bits[8:]
-        weight = bitarray_to_int(bits[:32])
-        i += 32
+    @staticmethod
+    def decode(bits: bitarray) -> str:
+        table_length = int.from_bytes(bits[:32], byteorder='big', signed=True)
         bits = bits[32:]
-        letters[letter] = weight
-    return bits, HuffmanTree(letters)
+        i = 0
+        letters = {}
+        while i < table_length:
+            letter = bits[:8].tobytes().decode()
+            i += 8
+            bits = bits[8:]
+            weight = 0
+            for bit in bits[:32]:
+                weight = (weight << 1) | bit
+            i += 32
+            bits = bits[32:]
+            letters[letter] = weight
+        tree = StaticHuffmanTree(letters)
+        i = 1
+        text = ""
+        while bits:
+            letter = tree.search(bits[:i])
+            if letter is not None:
+                text += letter
+                bits = bits[i:]
+                i = 0
+            i += 1
+        return text
 
 
-def decode(bits: bitarray) -> str:
-    bits, tree = decoding_table(bits)
-    i = 1
-    text = ""
-    while bits:
-        letter = tree.search(bits[:i])
-        if letter is not None:
-            text += letter
-            bits = bits[i:]
-            i = 0
-        i += 1
-    return text
 
+text = None
+with open("test.txt", "r") as file:
+    text = file.read()
+with open("result.txt", "wb") as file:
+    StaticHuffmanTree.encode(text).tofile(file)
 
-print(decode(encode("aoisjdoi[wehfoiqw")))
+bits = bitarray()
+with open("result.txt", "rb") as file:
+    bits.fromfile(file)
+with open("result1.txt", "w") as file:
+    file.write(StaticHuffmanTree.decode(bits))
