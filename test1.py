@@ -22,14 +22,23 @@ class Automaton:
         self.trie.state = state_id_counter
         state_id_counter += 1
 
-        for column in pattern:
+        for i in range(len(pattern[0])):
             temp = self.trie
-            for letter in column:
-                if letter not in temp.transitions:
-                    temp.transitions[letter] = Node()
-                    temp.transitions[letter].state = state_id_counter
+            for j in range(len(pattern)):
+                if pattern[j][i] not in temp.transitions:
+                    temp.transitions[pattern[j][i]] = Node()
+                    temp.transitions[pattern[j][i]].state = state_id_counter
                     state_id_counter += 1
-                temp = temp.transitions[letter]
+                temp = temp.transitions[pattern[j][i]]
+
+        # for column in pattern:
+        #     temp = self.trie
+        #     for letter in column:
+        #         if letter not in temp.transitions:
+        #             temp.transitions[letter] = Node()
+        #             temp.transitions[letter].state = state_id_counter
+        #             state_id_counter += 1
+        #         temp = temp.transitions[letter]
 
         q: Queue[Node] = Queue()
 
@@ -67,11 +76,17 @@ class Automaton:
         self.current_state = self.trie
 
     def compute_final_states(self, patter: List[str]):
-        for column in patter:
+        for i in range(len(pattern[0])):
             self.final_states.append(0)
-            for letter in column:
-                self.final_states[-1] = self.read_char(letter)
+            for j in range(len(pattern)):
+                self.final_states[-1] = self.read_char(pattern[j][i])
             self.rollback()
+
+        # for column in patter:
+        #     self.final_states.append(0)
+        #     for letter in column:
+        #         self.final_states[-1] = self.read_char(letter)
+        #     self.rollback()
 
     def compute_final_states_automaton(self):
         for state in self.final_states:
@@ -121,9 +136,10 @@ class Automaton:
 
 
 # with open('haystack.txt', 'r') as file:
-text = ['atha',
-        ' th ']
-pattern = ['tt',
-           'hh']
+text = ['ath',
+        ' th']
+pattern = ['th',
+           'th']
+
 automaton = Automaton(pattern, 'th a')
 print(automaton.find(text))
