@@ -1,5 +1,7 @@
 from queue import Queue
-from typing import Dict, List
+from typing import Dict, List, Set, TypeVar
+
+X = TypeVar('X')
 
 
 class Node:
@@ -11,34 +13,28 @@ class Node:
 
 
 class Automaton:
-    def __init__(self, pattern: List[str], alphabet: str) -> None:
+    def __init__(self, pattern: List[str]) -> None:
         super().__init__()
         self.final_states: List[int] = []
         self.final_states_automaton: Dict[int, List[int]] = {}
         self.trie: Node = Node()
         self.current_state: Node = self.trie
 
-        state_id_counter = 0
-        self.trie.state = state_id_counter
-        state_id_counter += 1
+        state_counter = 0
+        self.trie.state = state_counter
+        state_counter += 1
+
+        alphabet: Set[str] = set()
 
         for i in range(len(pattern[0])):
             temp = self.trie
             for j in range(len(pattern)):
                 if pattern[j][i] not in temp.transitions:
+                    alphabet.add(pattern[j][i])
                     temp.transitions[pattern[j][i]] = Node()
-                    temp.transitions[pattern[j][i]].state = state_id_counter
-                    state_id_counter += 1
+                    temp.transitions[pattern[j][i]].state = state_counter
+                    state_counter += 1
                 temp = temp.transitions[pattern[j][i]]
-
-        # for column in pattern:
-        #     temp = self.trie
-        #     for letter in column:
-        #         if letter not in temp.transitions:
-        #             temp.transitions[letter] = Node()
-        #             temp.transitions[letter].state = state_id_counter
-        #             state_id_counter += 1
-        #         temp = temp.transitions[letter]
 
         q: Queue[Node] = Queue()
 
@@ -81,12 +77,6 @@ class Automaton:
             for j in range(len(pattern)):
                 self.final_states[-1] = self.read_char(pattern[j][i])
             self.rollback()
-
-        # for column in patter:
-        #     self.final_states.append(0)
-        #     for letter in column:
-        #         self.final_states[-1] = self.read_char(letter)
-        #     self.rollback()
 
     def compute_final_states_automaton(self):
         for state in self.final_states:
@@ -136,10 +126,11 @@ class Automaton:
 
 
 # with open('haystack.txt', 'r') as file:
-text = ['ath',
-        ' th']
+text = ['ththth',
+        'ththth',
+        'ththth']
 pattern = ['th',
            'th']
 
-automaton = Automaton(pattern, 'th a')
+automaton = Automaton(pattern)
 print(automaton.find(text))
