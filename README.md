@@ -1,3 +1,5 @@
+__Jak pomogłem daj gwiazdkę.__
+
 # TextualAlgorithms
 Textual algorithms implemented during laboratories
 ## labs
